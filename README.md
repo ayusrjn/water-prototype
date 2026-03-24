@@ -2,7 +2,7 @@
 
 WATER is a prototype system that automatically allocates and orchestrates containerized machine learning workloads across heterogeneous compute nodes, such as local edge devices (laptops) and remote cloud virtual machines (GCP).
 
-## 🚀 Features
+##  Features
 
 - **Constraint-Aware Allocation**: Workloads specify hardware requirements (RAM, GPU) and data sensitivity limits (e.g., HIPAA-restricted data stays local).
 - **Multi-Node Execution**: Run Docker containers either locally or over SSH on remote VMs.
@@ -10,7 +10,7 @@ WATER is a prototype system that automatically allocates and orchestrates contai
 - **Auto Data Sync**: Seamlessly syncs local input data to remote execution nodes via `rsync`/`scp` before container execution.
 - **Auditing**: Records all lifecycle events (submitted, allocated, executed, completed/failed) in a local SQLite database (`audit.db`).
 
-## 📁 Project Structure
+##  Project Structure
 
 - `main.py`: CLI entrypoint for parsing workflows and initiating allocation.
 - `models.py`: Pydantic models defining `WATERWorkflow` and `ComputeNode`.
@@ -21,7 +21,7 @@ WATER is a prototype system that automatically allocates and orchestrates contai
 - `examples/`, `example2/`, `example3/`, `example4/`: Sample workloads and training scripts (e.g., OpenCV inference, scikit-learn models).
 - `*.yaml`: Example workflow definitions.
 
-## 🛠️ Setup
+##  Setup
 
 1. **Clone the repository:**
    ```bash
@@ -60,7 +60,7 @@ python main.py --workflow workflow_gcp.yaml
 
 *Note: For GCP execution, WATER will automatically attempt to transfer required `input_path` data to the VM using `rsync` (falling back to `scp` if needed) if `sync_input_to_remote` is `true` in the configuration.*
 
-## 📄 Creating a New Workflow
+##  Creating a New Workflow
 
 Workflows are defined in YAML. Create a file like `my_workflow.yaml`:
 
