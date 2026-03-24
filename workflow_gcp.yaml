@@ -1,0 +1,17 @@
+name: pneumonia_detection_gcp
+execution:
+  docker_image: water/opencv-infer:latest
+  entrypoint: python /app/infer.py
+  timeout_minutes: 30
+resources:
+  requires_gpu: false
+  min_ram_gb: 4
+data:
+  input_path: /home/ayush-ranjan/water_input/patient_batch_01
+  sensitivity: restricted
+  must_stay_local: false
+placement:
+  target_node_id: gcp-edge
+transfer:
+  sync_input_to_remote: true
+  remote_input_path: /home/ayushraanjan/water_input/patient_batch_01

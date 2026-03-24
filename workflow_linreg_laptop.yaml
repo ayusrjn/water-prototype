@@ -1,0 +1,15 @@
+# Public image from Docker Hub — no local build. Script + CSV live in example2/ (mounted at /data/input).
+name: linear_regression_train_laptop
+execution:
+  docker_image: python:3.10-slim
+  entrypoint: pip install --no-cache-dir -q pandas==2.2.3 scikit-learn==1.5.2 && python /data/input/train.py
+  timeout_minutes: 30
+resources:
+  requires_gpu: false
+  min_ram_gb: 2
+data:
+  input_path: /home/ayush-ranjan/Documents/water_prototype/example2
+  sensitivity: restricted
+  must_stay_local: false
+placement:
+  target_node_id: laptop-edge

@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+env/
+venv/
+.env
+
+# Configs and local states
+audit.db
+a
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

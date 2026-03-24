@@ -1,0 +1,18 @@
+# Same as laptop: pulls python:3.10-slim on the VM; syncs example2/ (includes train.py + dataset.csv).
+name: linear_regression_train_gcp
+execution:
+  docker_image: python:3.10-slim
+  entrypoint: pip install --no-cache-dir -q pandas==2.2.3 scikit-learn==1.5.2 && python /data/input/train.py
+  timeout_minutes: 30
+resources:
+  requires_gpu: false
+  min_ram_gb: 2
+data:
+  input_path: /home/ayush-ranjan/Documents/water_prototype/example2
+  sensitivity: restricted
+  must_stay_local: false
+placement:
+  target_node_id: gcp-edge
+transfer:
+  sync_input_to_remote: true
+  remote_input_path: /home/ayushraanjan/example2
