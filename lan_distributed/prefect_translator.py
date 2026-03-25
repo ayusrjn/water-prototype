@@ -5,7 +5,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 from prefect import flow, get_run_logger, task
-from prefect.deployments.deployments import run_deployment
+from prefect.deployments import run_deployment
 
 from models import ComputeNode, WATERWorkflow
 
