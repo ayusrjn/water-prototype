@@ -101,7 +101,7 @@ def deploy_and_run(workflow: WATERWorkflow, target_node: ComputeNode) -> bool:
                 "input_path": workflow.input_path,
                 "timeout_minutes": workflow.timeout_minutes,
             },
-            timeout=0  # Wait for completion
+            timeout=workflow.timeout_minutes * 60  # Wait for completion, not 0
         )
         return flow_run.state.is_completed()
     except Exception as e:

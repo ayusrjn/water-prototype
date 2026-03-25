@@ -13,7 +13,7 @@ data:
   sensitivity: restricted
   must_stay_local: false
 placement:
-  target_node_id: gcp-edge
+  target_node_id: laptop-edge-2
 transfer:
   sync_input_to_remote: true
   remote_input_path: /home/ayushraanjan/example3
