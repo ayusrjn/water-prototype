@@ -1,85 +1,86 @@
-# WATER (Workflow Allocation and Task Execution Router)
+# WATER: Workflow Allocation and Task Execution Router
 
-WATER is a prototype system that automatically allocates and orchestrates containerized machine learning workloads across heterogeneous compute nodes, such as local edge devices (laptops) and remote cloud virtual machines (GCP).
+WATER is a constraint-aware orchestration system that automatically allocates and executes containerized workloads across heterogeneous compute nodes (e.g., local developer machines, edge devices, and cloud virtual machines).
 
-##  Features
+## System Architecture
 
-- **Constraint-Aware Allocation**: Workloads specify hardware requirements (RAM, GPU) and data sensitivity limits (e.g., HIPAA-restricted data stays local).
-- **Multi-Node Execution**: Run Docker containers either locally or over SSH on remote VMs.
-- **Workflow Orchestration**: Powered by [Prefect](https://www.prefect.io/) for robust execution, retry logic, and monitoring.
-- **Auto Data Sync**: Seamlessly syncs local input data to remote execution nodes via `rsync`/`scp` before container execution.
-- **Auditing**: Records all lifecycle events (submitted, allocated, executed, completed/failed) in a local SQLite database (`audit.db`).
+The WATER architecture is composed of several modular Python components that evaluate hardware constraints, rank target nodes, and dispatch work via Prefect.
 
-##  Project Structure
+- **main.py**: The command-line entry point that parses workflow requests and initiates the allocation and deployment cycle.
+- **models.py**: Defines strictly typed data structures using Pydantic, including `WATERWorkflow` (workload constraints and telemetry) and `ComputeNode` (hardware capabilities and network identification).
+- **registry.py**: Maintains the dynamic or statically mapped inventory of available compute nodes within the cluster.
+- **allocator.py**: Applies a multi-pass filtering and scoring algorithm. It evaluates hard constraints (e.g., RAM minimums, GPU requirements, HIPAA data residency restrictions) and ranks eligible nodes based on available resources and edge-preference weights.
+- **prefect_translator.py**: Translates the allocator's logical placement into executable Prefect deployments, dispatching the Docker container execution to the designated worker node.
+- **audit.py**: A local SQLite-based logging system (`audit.db`) that records immutable lifecycle events of every workflow (Submission, Allocation, Execution, and Completion states).
 
-- `main.py`: CLI entrypoint for parsing workflows and initiating allocation.
-- `models.py`: Pydantic models defining `WATERWorkflow` and `ComputeNode`.
-- `registry.py`: Defines the available compute nodes (mocked, but pulls GCP settings from environment).
-- `allocator.py`: Logic to score and select the best eligible node based on workflow constraints.
-- `prefect_translator.py`: Prefect tasks and flows that handle Docker execution and remote synchronization.
-- `workflow_loader.py`: Parses YAML workflow definitions.
-- `examples/`, `example2/`, `example3/`, `example4/`: Sample workloads and training scripts (e.g., OpenCV inference, scikit-learn models).
-- `*.yaml`: Example workflow definitions.
+## Distributed Execution Model
 
-##  Setup
+WATER utilizes a Hub-and-Spoke distributed execution model powered by Prefect, bypassing the need for manual SSH tunneling or scp transfers.
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd water_prototype
-   ```
+1. **Central Server**: A central Prefect server tracks workflow states and manages deployment queues.
+2. **Worker Nodes**: Compute nodes (such as laptops or GCP instances) run a lightweight Python daemon (`worker_node.py`) that polls the central server for workloads assigned specifically to their Node ID.
+3. **Execution**: Upon receiving a workload payload, the worker node pulls the designated Docker image and executes the containerized task natively on its host hardware.
 
-2. **Create a virtual environment and install dependencies:**
-   ```bash
-   python3 -m venv env
-   source env/bin/activate
-   pip install -r requirements.txt
-   ```
+*Note: In this distributed architecture, data must either be baked directly into the Docker image, accessible via a shared network file system (NFS), or pulled dynamically from cloud object storage (S3/GCS) by the container payload.*
 
-## 💻 Usage
+## Installation and Setup
 
-### 1. Local Execution (Laptop)
+### Prerequisites
+- Python 3.10+
+- Docker Engine installed and accessible on all intended worker nodes
+- Prefect 3.0+
 
-You can run workflows that are restricted to local execution (e.g., `workflow_laptop.yaml`).
+### Environment Initialization
+
+Clone the repository and install the minimal orchestration dependencies:
 
 ```bash
-python main.py --workflow workflow_laptop.yaml
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2. Remote Execution (GCP)
+### Cluster Bootstrapping
 
-To execute a workload on a remote GCP VM, you must configure the SSH connection parameters via environment variables before running the workflow:
+1. **Initialize the Orchestrator** 
+   Start the Prefect server on your primary control machine:
+   ```bash
+   prefect server start --host 0.0.0.0
+   ```
 
-```bash
-export WATER_GCP_HOST="YOUR_GCP_VM_IP"               # Replace with actual IP
-export WATER_GCP_USER="ubuntu"                       # Or your specific user
-export WATER_GCP_KEY_PATH="~/.ssh/gcp-water.pem"     # Path to your private key
+2. **Initialize Worker Nodes**
+   On every machine joining the cluster, export the central server's API address and launch the worker listener, providing a unique Node ID that has been allocated in `registry.py`:
+   ```bash
+   export PREFECT_API_URL="http://<SERVER_IP>:4200/api"
+   python lan_distributed/worker_node.py --node-id laptop-edge-2
+   ```
 
-python main.py --workflow workflow_gcp.yaml
-```
+## Workload Submission
 
-*Note: For GCP execution, WATER will automatically attempt to transfer required `input_path` data to the VM using `rsync` (falling back to `scp` if needed) if `sync_input_to_remote` is `true` in the configuration.*
-
-##  Creating a New Workflow
-
-Workflows are defined in YAML. Create a file like `my_workflow.yaml`:
+Workloads are defined declaratively via YAML configuration files.
 
 ```yaml
-name: my_custom_workflow
+name: logistic_regression_iris
 execution:
-  docker_image: python:3.10-slim
-  entrypoint: pip install -q pandas && python /data/input/script.py
+  docker_image: ayushranjan/water-iris-infer:latest
+  entrypoint: python /app/train.py
   timeout_minutes: 30
 resources:
   requires_gpu: false
   min_ram_gb: 4
 data:
-  input_path: /path/to/local/data
+  input_path: /mnt/shared_network_drive/iris_data
   sensitivity: restricted
-  must_stay_local: false     # Set to true for HIPAA/sensitive data
+  must_stay_local: false
 placement:
-  target_node_id: gcp-edge   # Target specific node 'laptop-edge' or 'gcp-edge'
-transfer:
-  sync_input_to_remote: true
-  remote_input_path: /path/to/remote/destination
+  target_node_id: laptop-edge-2
 ```
+
+To submit the workflow to the cluster:
+
+```bash
+export PREFECT_API_URL="http://127.0.0.1:4200/api"
+python lan_distributed/main.py --workflow my_workflow_config.yaml
+```
+
+The allocator will parse the request, verify that `laptop-edge-2` meets the 4GB RAM requirement, and push the workload to the Prefect deployment queue. The remote worker matching that Node ID will instantly pull the configuration and execute the Docker payload.
